@@ -21,7 +21,7 @@ class VolumeRockerWidget extends StatelessWidget {
         border: Border.all(color: AppColors.cardBorder, width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.3),
+            color: Colors.black.withValues(alpha: 0.3),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -94,7 +94,7 @@ class _RockerButtonState extends State<_RockerButton> {
         height: widget.height,
         decoration: BoxDecoration(
           color: _isPressed
-              ? AppColors.primary.withOpacity(0.25)
+              ? AppColors.primary.withValues(alpha: 0.25)
               : Colors.transparent,
           borderRadius: widget.borderRadius,
         ),
