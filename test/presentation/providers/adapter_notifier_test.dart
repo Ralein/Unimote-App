@@ -29,11 +29,11 @@ void main() {
 
     test('connectToDevice switches active adapter and pairs', () async {
       const device = Device(
-        id: 'test-samsung-01',
-        name: 'Samsung Living Room',
-        brand: DeviceBrand.samsung,
+        id: 'test-mock-01',
+        name: 'Mock Living Room',
+        brand: DeviceBrand.mock,
         ipAddress: '192.168.1.105',
-        port: 8002,
+        port: 8080,
       );
 
       final notifier = container.read(adapterNotifierProvider.notifier);
