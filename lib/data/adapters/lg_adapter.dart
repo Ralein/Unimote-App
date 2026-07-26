@@ -196,12 +196,14 @@ class LgAdapter extends BaseAdapter {
 
   void _sendSsapRequest(String uri, {Map<String, dynamic>? payload}) {
     final id = 'request_${_requestId++}';
-    final requestFrame = {
+    final requestFrame = <String, dynamic>{
       "type": "request",
       "id": id,
       "uri": uri,
-      if (payload != null) "payload": payload,
     };
+    if (payload != null) {
+      requestFrame["payload"] = payload;
+    }
 
     _channel?.sink.add(jsonEncode(requestFrame));
   }
