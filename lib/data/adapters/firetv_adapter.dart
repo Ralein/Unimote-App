@@ -9,6 +9,7 @@ import 'command_mapper.dart';
 class FireTvAdapter extends BaseAdapter {
   final CommandMapper mapper;
   Device? _activeDevice;
+  int _activePort = 5555;
 
   FireTvAdapter({CommandMapper? mapper})
       : mapper = mapper ?? FireTvCommandMapper();
@@ -21,29 +22,36 @@ class FireTvAdapter extends BaseAdapter {
     if (Platform.isIOS) {
       emitState(
         AdapterState.error(
-          'Fire TV control requires ADB network debugging. iOS system security policies restrict native ADB network shells. Switch to an Android device or use Wi-Fi TV adapters.',
+          'Fire TV control requires ADB/TLS network debugging. iOS system security policies restrict native ADB sockets. Switch to an Android device or use Wi-Fi TV adapters.',
           device: device,
         ),
       );
       return;
     }
 
-    try {
-      final socket = await Socket.connect(
-        device.ipAddress,
-        device.port,
-        timeout: const Duration(seconds: 4),
-      );
-      socket.destroy();
-      emitState(AdapterState.paired(device));
-    } catch (e) {
-      emitState(
-        AdapterState.error(
-          'Failed to connect to Fire TV ADB on ${device.ipAddress}:${device.port}. Ensure ADB Debugging is enabled in TV Settings -> My Fire TV -> Developer Options.',
-          device: device,
-        ),
-      );
+    final targetPorts = [device.port, 5555, 6467];
+
+    for (final port in targetPorts) {
+      try {
+        final socket = await Socket.connect(
+          device.ipAddress,
+          port,
+          timeout: const Duration(seconds: 2),
+        );
+        socket.destroy();
+        _activePort = port;
+        final connectedDevice = device.copyWith(port: port);
+        emitState(AdapterState.paired(connectedDevice));
+        return;
+      } catch (_) {}
     }
+
+    emitState(
+      AdapterState.error(
+        'Failed to connect to Fire TV / Android TV on ${device.ipAddress} (tested ports 5555 & 6467). Ensure ADB Debugging is enabled in TV Settings -> My Fire TV / Device Preferences -> Developer Options.',
+        device: device,
+      ),
+    );
   }
 
   @override
@@ -63,4 +71,6 @@ class FireTvAdapter extends BaseAdapter {
 
   @override
   Future<void> launchApp(String appId) async {}
+
+  int get activePort => _activePort;
 }
