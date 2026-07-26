@@ -9,5 +9,8 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "unimote/ir")
             .setMethodCallHandler(IrMethodChannel(applicationContext))
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "unimote/bluetooth")
+            .setMethodCallHandler(BluetoothMethodChannel(applicationContext))
     }
 }

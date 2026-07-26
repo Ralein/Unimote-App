@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
+import '../../data/adapters/bluetooth_adapter.dart';
 import '../../data/adapters/ir_adapter.dart';
 import '../../domain/entities/adapter_state.dart';
 import '../../domain/entities/device.dart';
@@ -22,6 +23,7 @@ enum RemoteControlMode {
 
 enum ConnectionMode {
   wifi,
+  bluetooth,
   ir,
 }
 
@@ -37,19 +39,23 @@ class _RemoteScreenState extends ConsumerState<RemoteScreen> {
   RemoteControlMode _controlMode = RemoteControlMode.dpad;
   ConnectionMode _connectionMode = ConnectionMode.wifi;
   late final IrAdapter _irAdapter = IrAdapter();
+  late final BluetoothAdapter _btAdapter = BluetoothAdapter();
   bool _hasIrHardware = false;
+  bool _hasBluetoothHardware = true;
 
   @override
   void initState() {
     super.initState();
-    _checkIrHardware();
+    _checkHardware();
   }
 
-  void _checkIrHardware() async {
-    final hasEmitter = await _irAdapter.hasIrEmitter();
+  void _checkHardware() async {
+    final hasIr = await _irAdapter.hasIrEmitter();
+    final hasBt = await BluetoothAdapter.isBluetoothAvailable();
     if (mounted) {
       setState(() {
-        _hasIrHardware = hasEmitter;
+        _hasIrHardware = hasIr;
+        _hasBluetoothHardware = hasBt;
       });
     }
   }
@@ -61,6 +67,19 @@ class _RemoteScreenState extends ConsumerState<RemoteScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Sent IR Signal: ${key.displayName}'),
+          duration: const Duration(milliseconds: 600),
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.all(16),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+      return;
+    } else if (_connectionMode == ConnectionMode.bluetooth) {
+      _btAdapter.sendKey(key);
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Sent Bluetooth Key: ${key.displayName}'),
           duration: const Duration(milliseconds: 600),
           behavior: SnackBarBehavior.floating,
           margin: const EdgeInsets.all(16),
@@ -86,7 +105,7 @@ class _RemoteScreenState extends ConsumerState<RemoteScreen> {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('No TV connected. Use Discovery or switch to IR Mode.'),
+          content: const Text('No TV connected. Use Discovery or switch to Bluetooth/IR Mode.'),
           duration: const Duration(seconds: 2),
         ),
       );
@@ -125,7 +144,11 @@ class _RemoteScreenState extends ConsumerState<RemoteScreen> {
             onPressed: () {
               final text = textController.text.trim();
               if (text.isNotEmpty) {
-                ref.read(activeAdapterProvider)?.sendText(text);
+                if (_connectionMode == ConnectionMode.bluetooth) {
+                  _btAdapter.sendText(text);
+                } else {
+                  ref.read(activeAdapterProvider)?.sendText(text);
+                }
               }
               Navigator.pop(context);
             },
@@ -165,7 +188,9 @@ class _RemoteScreenState extends ConsumerState<RemoteScreen> {
             Text(
               _connectionMode == ConnectionMode.ir
                   ? 'IR Blaster Remote'
-                  : (currentDevice?.name ?? 'Unimote Control'),
+                  : (_connectionMode == ConnectionMode.bluetooth
+                      ? 'Bluetooth HID Remote'
+                      : (currentDevice?.name ?? 'Unimote Control')),
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             Row(
@@ -178,24 +203,30 @@ class _RemoteScreenState extends ConsumerState<RemoteScreen> {
                     shape: BoxShape.circle,
                     color: _connectionMode == ConnectionMode.ir
                         ? (_hasIrHardware ? AppColors.statusGreen : AppColors.powerRed)
-                        : (adapterState.isConnected
-                            ? AppColors.statusGreen
-                            : AppColors.warningAmber),
+                        : (_connectionMode == ConnectionMode.bluetooth
+                            ? (_hasBluetoothHardware ? AppColors.statusGreen : AppColors.powerRed)
+                            : (adapterState.isConnected
+                                ? AppColors.statusGreen
+                                : AppColors.warningAmber)),
                   ),
                 ),
                 const SizedBox(width: 6),
                 Text(
                   _connectionMode == ConnectionMode.ir
                       ? (_hasIrHardware ? 'IR EMITTER READY' : 'NO IR HARDWARE')
-                      : adapterState.status.name.toUpperCase(),
+                      : (_connectionMode == ConnectionMode.bluetooth
+                          ? (_hasBluetoothHardware ? 'BLUETOOTH HID READY' : 'NO BLUETOOTH')
+                          : adapterState.status.name.toUpperCase()),
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                     color: _connectionMode == ConnectionMode.ir
                         ? (_hasIrHardware ? AppColors.statusGreen : AppColors.powerRed)
-                        : (adapterState.isConnected
-                            ? AppColors.statusGreen
-                            : AppColors.warningAmber),
+                        : (_connectionMode == ConnectionMode.bluetooth
+                            ? (_hasBluetoothHardware ? AppColors.statusGreen : AppColors.powerRed)
+                            : (adapterState.isConnected
+                                ? AppColors.statusGreen
+                                : AppColors.warningAmber)),
                     letterSpacing: 0.8,
                   ),
                 ),
@@ -221,18 +252,23 @@ class _RemoteScreenState extends ConsumerState<RemoteScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           child: Column(
             children: [
-              // Connection Mode Switcher: Wi-Fi vs IR Blaster
+              // Connection Mode Switcher: Wi-Fi vs Bluetooth vs IR Blaster
               SegmentedButton<ConnectionMode>(
                 segments: const [
                   ButtonSegment(
                     value: ConnectionMode.wifi,
                     icon: Icon(Icons.wifi_rounded),
-                    label: Text('Wi-Fi TV'),
+                    label: Text('Wi-Fi'),
+                  ),
+                  ButtonSegment(
+                    value: ConnectionMode.bluetooth,
+                    icon: Icon(Icons.bluetooth_rounded),
+                    label: Text('Bluetooth'),
                   ),
                   ButtonSegment(
                     value: ConnectionMode.ir,
                     icon: Icon(Icons.sensors_rounded),
-                    label: Text('IR Blaster'),
+                    label: Text('IR'),
                   ),
                 ],
                 selected: {_connectionMode},
@@ -268,7 +304,7 @@ class _RemoteScreenState extends ConsumerState<RemoteScreen> {
                       const SizedBox(width: 12),
                       const Expanded(
                         child: Text(
-                          'No Wi-Fi TV Connected. Tap Discovery tab or switch to IR Blaster mode above.',
+                          'No Wi-Fi TV Connected. Switch to Bluetooth or IR mode above.',
                           style: TextStyle(fontSize: 12, color: AppColors.textPrimary),
                         ),
                       ),
@@ -296,7 +332,7 @@ class _RemoteScreenState extends ConsumerState<RemoteScreen> {
                     onPressed: () => _handleKey(RemoteKey.inputSource),
                   ),
                   PowerButton(
-                    isConnected: _connectionMode == ConnectionMode.ir ? _hasIrHardware : adapterState.isConnected,
+                    isConnected: _connectionMode != ConnectionMode.wifi ? true : adapterState.isConnected,
                     onPressed: () => _handleKey(RemoteKey.power),
                   ),
                   _QuickActionButton(

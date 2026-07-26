@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer' as dev;
 import 'dart:io';
 import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
@@ -109,16 +110,19 @@ class LgAdapter extends BaseAdapter {
         } else {
           emitState(AdapterState.pairing(_activeDevice!));
         }
+        dev.log('[UNIMOTE_LG] Connected successfully on port $port');
         return; // Connection succeeded
-      } catch (_) {
-        // Try next fallback port
+      } catch (e) {
+        dev.log('[UNIMOTE_LG_ERR] Port $port failed: $e');
       }
     }
 
+    dev.log('[UNIMOTE_LG_ERR] All ports failed for ${device.ipAddress}');
     emitState(AdapterState.error('Failed to connect to LG TV on ${device.ipAddress} (ports 3001/3000)', device: device));
   }
 
   void _onMessage(dynamic rawData) {
+    dev.log('[UNIMOTE_LG_RAW] $rawData');
     if (rawData == null || _activeDevice == null) return;
     try {
       final jsonMap = jsonDecode(rawData.toString());

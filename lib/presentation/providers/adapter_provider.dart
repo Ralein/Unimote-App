@@ -40,6 +40,8 @@ class AdapterNotifier extends Notifier<AdapterState> {
     _adapter = AdapterFactory.createAdapter(device);
 
     _stateSubscription = _adapter!.state.listen((newState) {
+      // ignore: avoid_print
+      print('[UNIMOTE_STATE] Transitioned to $newState for device ${_currentDevice?.ipAddress}');
       state = newState;
       if (newState.isConnected && _currentDevice != null) {
         _deviceRepository.saveDevice(_currentDevice!);
