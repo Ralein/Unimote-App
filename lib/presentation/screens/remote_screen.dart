@@ -1,12 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
+import '../../domain/entities/adapter_state.dart';
 import '../../domain/entities/remote_key.dart';
 import '../providers/adapter_provider.dart';
+import '../widgets/app_launcher_grid.dart';
 import '../widgets/dpad.dart';
 import '../widgets/numeric_pad.dart';
+import '../widgets/pairing_troubleshooter_dialog.dart';
 import '../widgets/power_button.dart';
+import '../widgets/trackpad_widget.dart';
 import '../widgets/volume_slider.dart';
+
+enum RemoteControlMode {
+  dpad,
+  trackpad,
+  apps,
+}
 
 class RemoteScreen extends ConsumerStatefulWidget {
   const RemoteScreen({super.key});
@@ -17,6 +27,7 @@ class RemoteScreen extends ConsumerStatefulWidget {
 
 class _RemoteScreenState extends ConsumerState<RemoteScreen> {
   bool _showNumericPad = false;
+  RemoteControlMode _controlMode = RemoteControlMode.dpad;
 
   void _handleKey(RemoteKey key) {
     final adapter = ref.read(activeAdapterProvider);
@@ -77,16 +88,34 @@ class _RemoteScreenState extends ConsumerState<RemoteScreen> {
     );
   }
 
+  void _openTroubleshooter(AdapterState adapterState) {
+    showDialog(
+      context: context,
+      builder: (context) => PairingTroubleshooterDialog(
+        device: adapterState.connectedDevice,
+        onUpdateDevice: (updatedDevice) {
+          ref.read(adapterNotifierProvider.notifier).connectToDevice(updatedDevice);
+        },
+        onRetryConnection: () {
+          if (adapterState.connectedDevice != null) {
+            ref.read(adapterNotifierProvider.notifier).connectToDevice(adapterState.connectedDevice!);
+          }
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final adapterState = ref.watch(adapterNotifierProvider);
+    final currentDevice = adapterState.connectedDevice;
 
     return Scaffold(
       appBar: AppBar(
         title: Column(
           children: [
             Text(
-              adapterState.connectedDevice?.name ?? 'Unimote Control',
+              currentDevice?.name ?? 'Unimote Control',
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             Row(
@@ -99,7 +128,9 @@ class _RemoteScreenState extends ConsumerState<RemoteScreen> {
                     shape: BoxShape.circle,
                     color: adapterState.isConnected
                         ? AppColors.statusGreen
-                        : AppColors.warningAmber,
+                        : (adapterState.isPairing
+                            ? AppColors.primaryLight
+                            : AppColors.warningAmber),
                   ),
                 ),
                 const SizedBox(width: 6),
@@ -110,7 +141,9 @@ class _RemoteScreenState extends ConsumerState<RemoteScreen> {
                     fontWeight: FontWeight.w600,
                     color: adapterState.isConnected
                         ? AppColors.statusGreen
-                        : AppColors.warningAmber,
+                        : (adapterState.isPairing
+                            ? AppColors.primaryLight
+                            : AppColors.warningAmber),
                     letterSpacing: 0.8,
                   ),
                 ),
@@ -119,6 +152,11 @@ class _RemoteScreenState extends ConsumerState<RemoteScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.build_rounded),
+            tooltip: 'Pairing Assistant',
+            onPressed: () => _openTroubleshooter(adapterState),
+          ),
           IconButton(
             icon: const Icon(Icons.keyboard_rounded),
             tooltip: 'Send Text',
@@ -131,6 +169,74 @@ class _RemoteScreenState extends ConsumerState<RemoteScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           child: Column(
             children: [
+              // Connection / Pairing Status Warning Banner
+              if (!adapterState.isConnected) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: adapterState.isPairing
+                        ? AppColors.primary.withValues(alpha: 0.2)
+                        : AppColors.powerRedGlow,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: adapterState.isPairing
+                          ? AppColors.primaryLight
+                          : AppColors.powerRed,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        adapterState.isPairing
+                            ? Icons.screen_search_desktop_rounded
+                            : Icons.warning_amber_rounded,
+                        color: adapterState.isPairing
+                            ? AppColors.primaryLight
+                            : AppColors.powerRed,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              adapterState.isPairing
+                                  ? 'Check TV Screen for Pairing Prompt'
+                                  : 'TV Connection Pending',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            Text(
+                              adapterState.errorMessage ??
+                                  (adapterState.isPairing
+                                      ? 'Accept on-screen prompt on TV'
+                                      : 'Ensure TV is on Wi-Fi or turn on via WoL'),
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      ElevatedButton(
+                        onPressed: () => _openTroubleshooter(adapterState),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                        child: const Text('Fix / Pair'),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+
               // Top Action Row: Power Button & Quick Controls
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -156,44 +262,108 @@ class _RemoteScreenState extends ConsumerState<RemoteScreen> {
                 ],
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
 
-              // Navigation Key Controls (Home, Back, Play/Pause)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _RoundIconButton(
-                    icon: Icons.home_rounded,
-                    label: 'Home',
-                    onPressed: () => _handleKey(RemoteKey.home),
+              // Control Mode Switcher Segmented Control
+              SegmentedButton<RemoteControlMode>(
+                segments: const [
+                  ButtonSegment(
+                    value: RemoteControlMode.dpad,
+                    icon: Icon(Icons.grid_view_rounded),
+                    label: Text('DPad'),
                   ),
-                  _RoundIconButton(
-                    icon: Icons.play_arrow_rounded,
-                    label: 'Play/Pause',
-                    onPressed: () => _handleKey(RemoteKey.playPause),
+                  ButtonSegment(
+                    value: RemoteControlMode.trackpad,
+                    icon: Icon(Icons.touch_app_rounded),
+                    label: Text('Trackpad'),
                   ),
-                  _RoundIconButton(
-                    icon: Icons.arrow_back_rounded,
-                    label: 'Back',
-                    onPressed: () => _handleKey(RemoteKey.back),
+                  ButtonSegment(
+                    value: RemoteControlMode.apps,
+                    icon: Icon(Icons.apps_rounded),
+                    label: Text('Apps'),
                   ),
                 ],
+                selected: {_controlMode},
+                onSelectionChanged: (Set<RemoteControlMode> selection) {
+                  setState(() {
+                    _controlMode = selection.first;
+                  });
+                },
+                style: ButtonStyle(
+                  backgroundColor: WidgetStateProperty.resolveWith((states) {
+                    if (states.contains(WidgetState.selected)) {
+                      return AppColors.primary;
+                    }
+                    return AppColors.surfaceElevated;
+                  }),
+                ),
               ),
 
-              const SizedBox(height: 28),
+              const SizedBox(height: 20),
 
-              // DPAD & Volume Section
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  DPadWidget(onKey: _handleKey),
-                  const SizedBox(width: 12),
-                  VolumeRockerWidget(onKey: _handleKey),
-                ],
-              ),
+              // Dynamic Control View (DPAD / Trackpad / App Launcher)
+              if (_controlMode == RemoteControlMode.dpad) ...[
+                // Navigation Key Controls (Home, Back, Play/Pause)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _RoundIconButton(
+                      icon: Icons.home_rounded,
+                      label: 'Home',
+                      onPressed: () => _handleKey(RemoteKey.home),
+                    ),
+                    _RoundIconButton(
+                      icon: Icons.play_arrow_rounded,
+                      label: 'Play/Pause',
+                      onPressed: () => _handleKey(RemoteKey.playPause),
+                    ),
+                    _RoundIconButton(
+                      icon: Icons.arrow_back_rounded,
+                      label: 'Back',
+                      onPressed: () => _handleKey(RemoteKey.back),
+                    ),
+                  ],
+                ),
 
-              const SizedBox(height: 24),
+                const SizedBox(height: 24),
+
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    DPadWidget(onKey: _handleKey),
+                    const SizedBox(width: 12),
+                    VolumeRockerWidget(onKey: _handleKey),
+                  ],
+                ),
+              ] else if (_controlMode == RemoteControlMode.trackpad) ...[
+                TrackpadWidget(onKey: _handleKey),
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _RoundIconButton(
+                      icon: Icons.home_rounded,
+                      label: 'Home',
+                      onPressed: () => _handleKey(RemoteKey.home),
+                    ),
+                    _RoundIconButton(
+                      icon: Icons.arrow_back_rounded,
+                      label: 'Back',
+                      onPressed: () => _handleKey(RemoteKey.back),
+                    ),
+                  ],
+                ),
+              ] else if (_controlMode == RemoteControlMode.apps) ...[
+                AppLauncherGridWidget(
+                  brand: currentDevice?.brand ?? DeviceBrand.samsung,
+                  onLaunchApp: (appId) {
+                    ref.read(activeAdapterProvider).launchApp(appId);
+                  },
+                ),
+              ],
+
+              const SizedBox(height: 20),
 
               // Expandable Numeric Keypad
               if (_showNumericPad) ...[
