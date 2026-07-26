@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
-import '../../domain/entities/adapter_state.dart';
 import '../../domain/entities/remote_key.dart';
 import '../providers/adapter_provider.dart';
 import '../widgets/dpad.dart';

@@ -19,6 +19,7 @@ class AdapterNotifier extends Notifier<AdapterState> {
   RemoteAdapter? _adapter;
   StreamSubscription<AdapterState>? _stateSubscription;
   Device? _currentDevice;
+  Device? get currentDevice => _currentDevice;
 
   RemoteAdapter get activeAdapter => _adapter ?? _fallbackMockAdapter;
   late final MockAdapter _fallbackMockAdapter = MockAdapter();
