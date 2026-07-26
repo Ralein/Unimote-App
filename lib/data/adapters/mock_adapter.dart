@@ -25,7 +25,9 @@ class MockAdapter implements RemoteAdapter {
 
   void _setState(AdapterState newState) {
     _currentState = newState;
-    _stateController.add(newState);
+    if (!_stateController.isClosed) {
+      _stateController.add(newState);
+    }
   }
 
   @override
