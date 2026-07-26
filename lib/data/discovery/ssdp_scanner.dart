@@ -50,76 +50,84 @@ class SsdpScanner {
     return headers;
   }
 
-  Stream<SsdpResponse> scan({Duration timeout = const Duration(seconds: 4)}) async* {
+  Stream<SsdpResponse> scan({Duration timeout = const Duration(seconds: 4)}) {
+    late StreamController<SsdpResponse> controller;
     RawDatagramSocket? socket;
-    try {
-      socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
-      socket.broadcastEnabled = true;
-      socket.multicastHops = 4;
+    StreamSubscription? socketSub;
+    Timer? timeoutTimer;
 
-      final targetAddr = InternetAddress(multicastAddress);
+    controller = StreamController<SsdpResponse>(
+      onListen: () async {
+        try {
+          socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
+          socket?.broadcastEnabled = true;
+          socket?.multicastHops = 4;
 
-      for (final st in searchTargets) {
-        final request =
-            'M-SEARCH * HTTP/1.1\r\n'
-            'HOST: $multicastAddress:$multicastPort\r\n'
-            'MAN: "ssdp:discover"\r\n'
-            'MX: 3\r\n'
-            'ST: $st\r\n'
-            'USER-AGENT: Unimote/1.0 UPnP/1.1\r\n'
-            '\r\n';
+          final targetAddr = InternetAddress(multicastAddress);
 
-        final bytes = utf8.encode(request);
-        socket.send(bytes, targetAddr, multicastPort);
-      }
+          for (final st in searchTargets) {
+            final request =
+                'M-SEARCH * HTTP/1.1\r\n'
+                'HOST: $multicastAddress:$multicastPort\r\n'
+                'MAN: "ssdp:discover"\r\n'
+                'MX: 3\r\n'
+                'ST: $st\r\n'
+                'USER-AGENT: Unimote/1.0 UPnP/1.1\r\n'
+                '\r\n';
 
-      final controller = StreamController<SsdpResponse>();
+            final bytes = utf8.encode(request);
+            socket?.send(bytes, targetAddr, multicastPort);
+          }
 
-      final subscription = socket.listen((RawSocketEvent event) {
-        if (event == RawSocketEvent.read) {
-          final datagram = socket?.receive();
-          if (datagram != null) {
-            try {
-              final raw = utf8.decode(datagram.data);
-              final headers = parseHeaders(raw);
+          socketSub = socket?.listen((RawSocketEvent event) {
+            if (event == RawSocketEvent.read && !controller.isClosed) {
+              final datagram = socket?.receive();
+              if (datagram != null) {
+                try {
+                  final raw = utf8.decode(datagram.data);
+                  final headers = parseHeaders(raw);
 
-              final location = headers['LOCATION'] ?? '';
-              final server = headers['SERVER'] ?? '';
-              final usn = headers['USN'] ?? '';
-              final st = headers['ST'] ?? headers['NT'] ?? '';
+                  final location = headers['LOCATION'] ?? '';
+                  final server = headers['SERVER'] ?? '';
+                  final usn = headers['USN'] ?? '';
+                  final st = headers['ST'] ?? headers['NT'] ?? '';
 
-              final response = SsdpResponse(
-                ipAddress: datagram.address.address,
-                port: datagram.port,
-                location: location,
-                server: server,
-                usn: usn,
-                st: st,
-                headers: headers,
-              );
-              controller.add(response);
-            } catch (_) {
-              // Ignore malformed UDP datagrams gracefully
+                  final response = SsdpResponse(
+                    ipAddress: datagram.address.address,
+                    port: datagram.port,
+                    location: location,
+                    server: server,
+                    usn: usn,
+                    st: st,
+                    headers: headers,
+                  );
+                  controller.add(response);
+                } catch (_) {}
+              }
             }
+          });
+
+          timeoutTimer = Timer(timeout, () {
+            if (!controller.isClosed) {
+              controller.close();
+            }
+          });
+        } catch (_) {
+          if (!controller.isClosed) {
+            controller.close();
           }
         }
-      });
+      },
+      onCancel: () async {
+        timeoutTimer?.cancel();
+        await socketSub?.cancel();
+        socket?.close();
+        if (!controller.isClosed) {
+          await controller.close();
+        }
+      },
+    );
 
-      // Stream responses until timeout
-      final stopWatch = Stopwatch()..start();
-      while (stopWatch.elapsed < timeout) {
-        await Future.delayed(const Duration(milliseconds: 100));
-        // Flush available stream events
-      }
-
-      await subscription.cancel();
-      await controller.close();
-
-      yield* controller.stream;
-    } catch (_) {
-      // Return empty stream if network socket binding fails
-    } finally {
-      socket?.close();
-    }
+    return controller.stream;
   }
 }
