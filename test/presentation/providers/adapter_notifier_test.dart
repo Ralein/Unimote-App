@@ -5,8 +5,11 @@ import 'package:unimote/domain/entities/device.dart';
 import 'package:unimote/domain/entities/remote_key.dart';
 import 'package:unimote/presentation/providers/adapter_provider.dart';
 
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  FlutterSecureStorage.setMockInitialValues({});
 
   group('AdapterNotifier Unit Tests', () {
     late ProviderContainer container;
