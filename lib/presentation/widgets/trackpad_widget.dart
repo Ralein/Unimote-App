@@ -18,36 +18,46 @@ class TrackpadWidget extends StatefulWidget {
 class _TrackpadWidgetState extends State<TrackpadWidget> {
   Offset _dragStart = Offset.zero;
   bool _isHovering = false;
+  Offset? _tapRipplePosition;
 
   void _handleDragStart(DragStartDetails details) {
     _dragStart = details.localPosition;
-    setState(() => _isHovering = true);
+    setState(() {
+      _isHovering = true;
+      _tapRipplePosition = details.localPosition;
+    });
   }
 
   void _handleDragEnd(DragEndDetails details) {
-    setState(() => _isHovering = false);
+    setState(() {
+      _isHovering = false;
+      _tapRipplePosition = null;
+    });
+
+    // Fling velocity check (TV Bro inspiration)
+    final velocity = details.velocity.pixelsPerSecond;
+    if (velocity.dx.abs() > 1000 || velocity.dy.abs() > 1000) {
+      HapticFeedback.heavyImpact();
+      if (velocity.dx.abs() > velocity.dy.abs()) {
+        widget.onKey(velocity.dx > 0 ? RemoteKey.dpadRight : RemoteKey.dpadLeft);
+      } else {
+        widget.onKey(velocity.dy > 0 ? RemoteKey.dpadDown : RemoteKey.dpadUp);
+      }
+    }
   }
 
   void _handleDragUpdate(DragUpdateDetails details) {
     final diff = details.localPosition - _dragStart;
-    const threshold = 40.0;
+    const threshold = 35.0;
 
     if (diff.dx.abs() > threshold || diff.dy.abs() > threshold) {
       HapticFeedback.lightImpact();
       if (diff.dx.abs() > diff.dy.abs()) {
-        if (diff.dx > 0) {
-          widget.onKey(RemoteKey.dpadRight);
-        } else {
-          widget.onKey(RemoteKey.dpadLeft);
-        }
+        widget.onKey(diff.dx > 0 ? RemoteKey.dpadRight : RemoteKey.dpadLeft);
       } else {
-        if (diff.dy > 0) {
-          widget.onKey(RemoteKey.dpadDown);
-        } else {
-          widget.onKey(RemoteKey.dpadUp);
-        }
+        widget.onKey(diff.dy > 0 ? RemoteKey.dpadDown : RemoteKey.dpadUp);
       }
-      _dragStart = details.localPosition; // Reset baseline for continuous drag
+      _dragStart = details.localPosition;
     }
   }
 
@@ -61,13 +71,17 @@ class _TrackpadWidgetState extends State<TrackpadWidget> {
         HapticFeedback.mediumImpact();
         widget.onKey(RemoteKey.select);
       },
+      onDoubleTap: () {
+        HapticFeedback.mediumImpact();
+        widget.onKey(RemoteKey.back);
+      },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         width: double.infinity,
-        height: 180,
+        height: 200,
         decoration: BoxDecoration(
           color: _isHovering
-              ? AppColors.primary.withValues(alpha: 0.15)
+              ? AppColors.primary.withValues(alpha: 0.2)
               : AppColors.surface,
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
@@ -84,18 +98,45 @@ class _TrackpadWidgetState extends State<TrackpadWidget> {
         ),
         child: Stack(
           alignment: Alignment.center,
-          children: const [
-            Icon(
-              Icons.touch_app_rounded,
-              size: 44,
-              color: AppColors.textMuted,
+          children: [
+            if (_tapRipplePosition != null)
+              Positioned(
+                left: _tapRipplePosition!.dx - 20,
+                top: _tapRipplePosition!.dy - 20,
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppColors.primary.withValues(alpha: 0.4),
+                  ),
+                ),
+              ),
+            const Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.touch_app_rounded,
+                  size: 48,
+                  color: AppColors.primaryLight,
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Trackpad Virtual Pointer',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
             ),
-            Positioned(
+            const Positioned(
               bottom: 12,
               child: Text(
-                'Swipe for DPAD • Tap for Select',
+                'Swipe to move • Tap Select • Double-Tap Back',
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 11,
                   color: AppColors.textSecondary,
                   fontWeight: FontWeight.w500,
                 ),
