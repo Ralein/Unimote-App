@@ -54,45 +54,51 @@ class SamsungAdapter extends BaseAdapter {
     _activeDevice = device;
     _savedToken = await tokenRepository.getToken(device.id);
 
-    try {
-      await retryPolicy.execute(() async {
+    final portsToTry = device.port == 8002 ? [8002, 8001] : [device.port, 8002, 8001];
+
+    for (final port in portsToTry) {
+      try {
         final url = buildUrl(
           ip: device.ipAddress,
-          port: device.port,
+          port: port,
           appName: 'Unimote',
           token: _savedToken,
         );
 
         final customClient = HttpClient()
-          ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+          ..badCertificateCallback = (X509Certificate cert, String host, int p) => true;
 
         final webSocket = await WebSocket.connect(
           url,
           customClient: customClient,
-        ).timeout(const Duration(seconds: 5));
+        ).timeout(const Duration(seconds: 4));
 
         _channel = IOWebSocketChannel(webSocket);
-      });
+        _activeDevice = device.copyWith(port: port);
 
-      _wsSubscription?.cancel();
-      _wsSubscription = _channel?.stream.listen(
-        _onMessage,
-        onError: (err) {
-          emitState(AdapterState.error('Samsung WebSocket error: $err', device: device));
-        },
-        onDone: () {
-          emitState(const AdapterState.disconnected());
-        },
-      );
+        _wsSubscription?.cancel();
+        _wsSubscription = _channel?.stream.listen(
+          _onMessage,
+          onError: (err) {
+            emitState(AdapterState.error('Samsung WebSocket error: $err', device: _activeDevice));
+          },
+          onDone: () {
+            emitState(const AdapterState.disconnected());
+          },
+        );
 
-      if (_savedToken != null && _savedToken!.isNotEmpty) {
-        emitState(AdapterState.paired(device));
-      } else {
-        emitState(AdapterState.pairing(device));
+        if (_savedToken != null && _savedToken!.isNotEmpty) {
+          emitState(AdapterState.paired(_activeDevice!));
+        } else {
+          emitState(AdapterState.pairing(_activeDevice!));
+        }
+        return; // Connection succeeded
+      } catch (_) {
+        // Try next fallback port
       }
-    } catch (e) {
-      emitState(AdapterState.error('Failed to connect to Samsung TV: $e', device: device));
     }
+
+    emitState(AdapterState.error('Failed to connect to Samsung TV on ${device.ipAddress} (ports 8002/8001)', device: device));
   }
 
   void _onMessage(dynamic rawData) {

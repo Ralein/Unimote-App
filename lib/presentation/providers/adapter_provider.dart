@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/adapters/adapter_factory.dart';
+import '../../data/storage/device_repository_impl.dart';
 import '../../domain/entities/adapter_state.dart';
 import '../../domain/entities/device.dart';
 import '../../domain/entities/remote_key.dart';
@@ -11,6 +12,7 @@ class AdapterNotifier extends Notifier<AdapterState> {
   StreamSubscription<AdapterState>? _stateSubscription;
   Device? _currentDevice;
   Device? get currentDevice => _currentDevice;
+  final DeviceRepository _deviceRepository = DeviceRepositoryImpl();
 
   RemoteAdapter? get activeAdapter => _adapter;
 
@@ -20,7 +22,15 @@ class AdapterNotifier extends Notifier<AdapterState> {
       _stateSubscription?.cancel();
     });
 
+    _autoConnectSavedDevice();
     return const AdapterState.disconnected();
+  }
+
+  Future<void> _autoConnectSavedDevice() async {
+    final saved = await _deviceRepository.getSavedDevices();
+    if (saved.isNotEmpty) {
+      connectToDevice(saved.first);
+    }
   }
 
   Future<void> connectToDevice(Device device) async {
@@ -31,6 +41,9 @@ class AdapterNotifier extends Notifier<AdapterState> {
 
     _stateSubscription = _adapter!.state.listen((newState) {
       state = newState;
+      if (newState.isConnected && _currentDevice != null) {
+        _deviceRepository.saveDevice(_currentDevice!);
+      }
     });
 
     await _adapter!.connect(device);

@@ -101,4 +101,29 @@ class DeviceFingerprinter {
     }
     return fallback;
   }
+
+  static DeviceBrand fingerprintFromPort(int port) {
+    switch (port) {
+      case 8060:
+        return DeviceBrand.roku;
+      case 8002:
+      case 8001:
+        return DeviceBrand.samsung;
+      case 3001:
+      case 3000:
+        return DeviceBrand.lg;
+      case 7345:
+      case 9000:
+        return DeviceBrand.vizio;
+      case 80:
+      case 20060:
+        return DeviceBrand.sony;
+      case 6467:
+        return DeviceBrand.androidTv;
+      case 5555:
+        return DeviceBrand.fireTv;
+      default:
+        return DeviceBrand.samsung;
+    }
+  }
 }

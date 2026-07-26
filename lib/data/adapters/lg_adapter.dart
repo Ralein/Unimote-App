@@ -71,45 +71,50 @@ class LgAdapter extends BaseAdapter {
     _activeDevice = device;
     _savedClientKey = await tokenRepository.getToken(device.id);
 
-    try {
-      await retryPolicy.execute(() async {
-        final scheme = device.port == 3001 ? 'wss' : 'ws';
-        final url = '$scheme://${device.ipAddress}:${device.port}';
+    final portsToTry = device.port == 3001 ? [3001, 3000] : [device.port, 3001, 3000];
+
+    for (final port in portsToTry) {
+      try {
+        final scheme = port == 3001 ? 'wss' : 'ws';
+        final url = '$scheme://${device.ipAddress}:$port';
 
         final customClient = HttpClient()
-          ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+          ..badCertificateCallback = (X509Certificate cert, String host, int p) => true;
 
         final webSocket = await WebSocket.connect(
           url,
           customClient: customClient,
-        ).timeout(const Duration(seconds: 5));
+        ).timeout(const Duration(seconds: 4));
 
         _channel = IOWebSocketChannel(webSocket);
-      });
+        _activeDevice = device.copyWith(port: port);
 
-      _wsSubscription?.cancel();
-      _wsSubscription = _channel?.stream.listen(
-        _onMessage,
-        onError: (err) {
-          emitState(AdapterState.error('LG webOS WebSocket error: $err', device: device));
-        },
-        onDone: () {
-          emitState(const AdapterState.disconnected());
-        },
-      );
+        _wsSubscription?.cancel();
+        _wsSubscription = _channel?.stream.listen(
+          _onMessage,
+          onError: (err) {
+            emitState(AdapterState.error('LG webOS WebSocket error: $err', device: _activeDevice));
+          },
+          onDone: () {
+            emitState(const AdapterState.disconnected());
+          },
+        );
 
-      // Send SSAP register handshake payload
-      final regPayload = buildRegisterPayload(clientKey: _savedClientKey);
-      _channel?.sink.add(jsonEncode(regPayload));
+        final regPayload = buildRegisterPayload(clientKey: _savedClientKey);
+        _channel?.sink.add(jsonEncode(regPayload));
 
-      if (_savedClientKey != null && _savedClientKey!.isNotEmpty) {
-        emitState(AdapterState.paired(device));
-      } else {
-        emitState(AdapterState.pairing(device));
+        if (_savedClientKey != null && _savedClientKey!.isNotEmpty) {
+          emitState(AdapterState.paired(_activeDevice!));
+        } else {
+          emitState(AdapterState.pairing(_activeDevice!));
+        }
+        return; // Connection succeeded
+      } catch (_) {
+        // Try next fallback port
       }
-    } catch (e) {
-      emitState(AdapterState.error('Failed to connect to LG TV: $e', device: device));
     }
+
+    emitState(AdapterState.error('Failed to connect to LG TV on ${device.ipAddress} (ports 3001/3000)', device: device));
   }
 
   void _onMessage(dynamic rawData) {
