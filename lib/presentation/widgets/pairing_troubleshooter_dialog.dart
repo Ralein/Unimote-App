@@ -28,6 +28,7 @@ class _PairingTroubleshooterDialogState extends State<PairingTroubleshooterDialo
   String? _wolStatus;
   DiagnosticReport? _diagnosticReport;
   bool _isDiagnosing = false;
+  bool _showTvGuide = false;
 
   @override
   void initState() {
@@ -173,6 +174,61 @@ class _PairingTroubleshooterDialogState extends State<PairingTroubleshooterDialo
                 ],
               ),
             ),
+
+            const SizedBox(height: 16),
+
+            // TV Menu Settings Guide Toggle
+            InkWell(
+              onTap: () => setState(() => _showTvGuide = !_showTvGuide),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.primaryLight),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.tv_rounded, size: 18, color: AppColors.primaryLight),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'If TV is not showing prompt, check TV Settings',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primaryLight),
+                      ),
+                    ),
+                    Icon(_showTvGuide ? Icons.expand_less_rounded : Icons.expand_more_rounded, color: AppColors.primaryLight),
+                  ],
+                ),
+              ),
+            ),
+
+            if (_showTvGuide) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceElevated,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text('Samsung TV Settings:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.textPrimary)),
+                    Text('Settings → General → External Device Manager → Device Connect Manager → set Access Notification to "First Time" & check Device List.', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                    SizedBox(height: 8),
+                    Text('LG TV Settings:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.textPrimary)),
+                    Text('Settings → Network → LG Connect Apps → set to ON.', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                    SizedBox(height: 8),
+                    Text('Sony TV Settings:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.textPrimary)),
+                    Text('Settings → Network → Home Network → IP Control → Authentication → Pre-Shared Key (0000).', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                    SizedBox(height: 8),
+                    Text('Roku Settings:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.textPrimary)),
+                    Text('Settings → System → Advanced system settings → Control by mobile apps → Permissive.', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                  ],
+                ),
+              ),
+            ],
 
             const SizedBox(height: 16),
 

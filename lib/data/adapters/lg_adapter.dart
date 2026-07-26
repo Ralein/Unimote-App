@@ -50,12 +50,13 @@ class LgAdapter extends BaseAdapter {
   static Map<String, dynamic> buildRegisterPayload({
     String? clientKey,
     List<String>? permissions,
+    bool forcePairing = true,
   }) {
     return {
       "type": "register",
       "id": "register_0",
       "payload": {
-        "forcePairing": false,
+        "forcePairing": forcePairing,
         "pairingType": "PROMPT",
         if (clientKey != null && clientKey.isNotEmpty) "client-key": clientKey,
         "manifest": {
