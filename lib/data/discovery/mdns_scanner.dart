@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:multicast_dns/multicast_dns.dart';
 
 class MdnsResponse {
@@ -33,7 +34,17 @@ class MdnsScanner {
   Stream<MdnsResponse> scan({Duration timeout = const Duration(seconds: 4)}) async* {
     MDnsClient? client;
     try {
-      client = MDnsClient();
+      client = MDnsClient(
+        rawDatagramSocketFactory: (dynamic host, int port, {bool? reuseAddress, bool? reusePort, int? ttl}) {
+          return RawDatagramSocket.bind(
+            host,
+            port,
+            reuseAddress: true,
+            reusePort: false,
+            ttl: ttl ?? 1,
+          );
+        },
+      );
       await client.start();
 
       for (final serviceType in targetServices) {
