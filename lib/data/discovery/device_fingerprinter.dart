@@ -37,10 +37,10 @@ class DeviceFingerprinter {
       brand = DeviceBrand.fireTv;
       port = 5555;
       name = 'Amazon Fire TV';
-    } else if (server.contains('androidtv') || server.contains('googletv')) {
+    } else if (server.contains('androidtv') || server.contains('googletv') || server.contains('eyeplus') || usn.contains('eyeplus')) {
       brand = DeviceBrand.androidTv;
       port = 6467;
-      name = 'Android TV';
+      name = _extractNameFromHeader(response, 'Eyeplus Google TV');
     }
 
     if (brand == null) return null;
