@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
 import '../../domain/entities/device.dart';
+import '../providers/adapter_provider.dart';
 import '../providers/discovery_provider.dart';
 
 class DiscoveryScreen extends ConsumerStatefulWidget {
@@ -373,11 +374,9 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
                                       color: AppColors.textMuted,
                                     ),
                               onTap: () {
-                                ref
-                                    .read(discoveryProvider.notifier)
-                                    .selectDevice(device);
-                                ScaffoldMessenger.of(context)
-                                    .hideCurrentSnackBar();
+                                ref.read(discoveryProvider.notifier).selectDevice(device);
+                                ref.read(adapterNotifierProvider.notifier).connectToDevice(device);
+                                ScaffoldMessenger.of(context).hideCurrentSnackBar();
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                     content: Text('Connected to ${device.name}'),
