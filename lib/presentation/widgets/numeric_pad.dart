@@ -83,7 +83,7 @@ class _NumButtonState extends State<_NumButton> {
         duration: const Duration(milliseconds: 100),
         decoration: BoxDecoration(
           color: _isPressed
-              ? AppColors.primary.withOpacity(0.3)
+              ? AppColors.primary.withValues(alpha: 0.3)
               : AppColors.surfaceElevated,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(

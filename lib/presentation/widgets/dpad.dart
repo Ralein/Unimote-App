@@ -24,7 +24,7 @@ class DPadWidget extends StatelessWidget {
         border: Border.all(color: AppColors.cardBorder, width: 2),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.5),
+            color: Colors.black.withValues(alpha: 0.5),
             blurRadius: 20,
             spreadRadius: 2,
             offset: const Offset(0, 8),
@@ -118,7 +118,7 @@ class _DPadButtonState extends State<_DPadButton> {
         height: widget.size,
         decoration: BoxDecoration(
           color: _isPressed
-              ? AppColors.primary.withOpacity(0.3)
+              ? AppColors.primary.withValues(alpha: 0.3)
               : Colors.transparent,
           shape: BoxShape.circle,
         ),
@@ -175,7 +175,7 @@ class _CenterSelectButtonState extends State<_CenterSelectButton> {
           boxShadow: [
             BoxShadow(
               color: _isPressed
-                  ? AppColors.primary.withOpacity(0.4)
+                  ? AppColors.primary.withValues(alpha: 0.4)
                   : Colors.black26,
               blurRadius: 8,
               spreadRadius: 1,
