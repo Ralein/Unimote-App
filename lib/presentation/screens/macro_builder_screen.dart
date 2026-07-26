@@ -190,7 +190,7 @@ class MacroBuilderScreen extends ConsumerWidget {
                           style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                         ),
                         trailing: ElevatedButton(
-                          onPressed: macroState.isExecuting
+                          onPressed: (macroState.isExecuting || adapter == null)
                               ? null
                               : () {
                                   ref.read(macroProvider.notifier).executeMacro(macro, adapter);
