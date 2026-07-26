@@ -1,5 +1,6 @@
 import '../../domain/entities/device.dart';
 import '../../domain/repositories/remote_adapter.dart';
+import '../storage/token_repository.dart';
 import 'androidtv_adapter.dart';
 import 'firetv_adapter.dart';
 import 'ir_adapter.dart';
@@ -11,12 +12,15 @@ import 'sony_adapter.dart';
 import 'vizio_adapter.dart';
 
 class AdapterFactory {
-  static RemoteAdapter createAdapter(Device device) {
+  static RemoteAdapter createAdapter(
+    Device device, {
+    TokenRepository? tokenRepository,
+  }) {
     switch (device.brand) {
       case DeviceBrand.samsung:
-        return SamsungAdapter();
+        return SamsungAdapter(tokenRepository: tokenRepository);
       case DeviceBrand.lg:
-        return LgAdapter();
+        return LgAdapter(tokenRepository: tokenRepository);
       case DeviceBrand.roku:
         return RokuAdapter();
       case DeviceBrand.fireTv:

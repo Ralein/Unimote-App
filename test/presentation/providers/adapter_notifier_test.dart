@@ -6,6 +6,8 @@ import 'package:unimote/domain/entities/remote_key.dart';
 import 'package:unimote/presentation/providers/adapter_provider.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('AdapterNotifier Unit Tests', () {
     late ProviderContainer container;
 
