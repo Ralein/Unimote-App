@@ -32,12 +32,12 @@ void main() {
 
     // Tap Discovery tab
     await tester.tap(find.text('Discovery'));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('Device Discovery'), findsOneWidget);
 
     // Tap Settings tab
     await tester.tap(find.text('Settings'));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('Dark Mode Default'), findsOneWidget);
   });
 }

@@ -19,36 +19,49 @@ class DiscoveryRepositoryImpl implements DiscoveryRepository {
         mdnsScanner = mdnsScanner ?? MdnsScanner();
 
   @override
-  Stream<List<Device>> scan({Duration timeout = const Duration(seconds: 4)}) async* {
+  Stream<List<Device>> scan({Duration timeout = const Duration(seconds: 4)}) {
+    late StreamController<List<Device>> controller;
     final Map<String, Device> discovered = {};
-    final controller = StreamController<List<Device>>();
+    StreamSubscription? ssdpSub;
+    StreamSubscription? mdnsSub;
+    Timer? timer;
 
-    final ssdpSub = ssdpScanner.scan(timeout: timeout).listen((ssdpResp) {
-      final device = DeviceFingerprinter.fingerprintSsdp(ssdpResp);
-      if (device != null) {
-        discovered[device.ipAddress] = device;
-        controller.add(discovered.values.toList());
-      }
-    });
+    controller = StreamController<List<Device>>(
+      onListen: () {
+        ssdpSub = ssdpScanner.scan(timeout: timeout).listen((ssdpResp) {
+          final device = DeviceFingerprinter.fingerprintSsdp(ssdpResp);
+          if (device != null && !controller.isClosed) {
+            discovered[device.ipAddress] = device;
+            controller.add(discovered.values.toList());
+          }
+        });
 
-    final mdnsSub = mdnsScanner.scan(timeout: timeout).listen((mdnsResp) {
-      final device = DeviceFingerprinter.fingerprintMdns(mdnsResp);
-      if (device != null) {
-        if (!discovered.containsKey(device.ipAddress)) {
-          discovered[device.ipAddress] = device;
-          controller.add(discovered.values.toList());
+        mdnsSub = mdnsScanner.scan(timeout: timeout).listen((mdnsResp) {
+          final device = DeviceFingerprinter.fingerprintMdns(mdnsResp);
+          if (device != null && !controller.isClosed) {
+            if (!discovered.containsKey(device.ipAddress)) {
+              discovered[device.ipAddress] = device;
+              controller.add(discovered.values.toList());
+            }
+          }
+        });
+
+        timer = Timer(timeout, () {
+          if (!controller.isClosed) {
+            controller.close();
+          }
+        });
+      },
+      onCancel: () async {
+        timer?.cancel();
+        await ssdpSub?.cancel();
+        await mdnsSub?.cancel();
+        if (!controller.isClosed) {
+          await controller.close();
         }
-      }
-    });
+      },
+    );
 
-    final stopWatch = Stopwatch()..start();
-    while (stopWatch.elapsed < timeout) {
-      await Future.delayed(const Duration(milliseconds: 100));
-      yield discovered.values.toList();
-    }
-
-    await ssdpSub.cancel();
-    await mdnsSub.cancel();
-    await controller.close();
+    return controller.stream;
   }
 }
