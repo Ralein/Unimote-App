@@ -1,30 +1,42 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-
 import 'package:unimote/main.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('Unimote app renders remote screen and navigation bar', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: UnimoteApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    // Verify initial remote screen header & navigation options exist
+    expect(find.text('Living Room TV (Mock)'), findsOneWidget);
+    expect(find.text('PAIRED'), findsOneWidget);
+    expect(find.byIcon(Icons.settings_remote_rounded), findsWidgets);
+    expect(find.byIcon(Icons.wifi_tethering_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.alt_route_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.tune_rounded), findsOneWidget);
+  });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+  testWidgets('Navigation bar switches between tabs', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: UnimoteApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // Tap Discovery tab
+    await tester.tap(find.text('Discovery'));
+    await tester.pumpAndSettle();
+    expect(find.text('Device Discovery'), findsOneWidget);
+
+    // Tap Settings tab
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+    expect(find.text('Dark Mode Default'), findsOneWidget);
   });
 }
