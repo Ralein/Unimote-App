@@ -48,45 +48,47 @@ class MdnsScanner {
       await client.start();
 
       for (final serviceType in targetServices) {
-        await for (final PtrResourceRecord ptr in client.lookup<PtrResourceRecord>(
-          ResourceRecordQuery.serverPointer(serviceType),
-        ).timeout(timeout, onTimeout: (sink) => sink.close())) {
-          final String domainName = ptr.domainName;
+        try {
+          await for (final PtrResourceRecord ptr in client.lookup<PtrResourceRecord>(
+            ResourceRecordQuery.serverPointer(serviceType),
+          ).timeout(timeout, onTimeout: (sink) => sink.close())) {
+            final String domainName = ptr.domainName;
 
-          await for (final SrvResourceRecord srv in client.lookup<SrvResourceRecord>(
-            ResourceRecordQuery.service(domainName),
-          ).timeout(const Duration(seconds: 1), onTimeout: (sink) => sink.close())) {
-            final String target = srv.target;
-            final int port = srv.port;
+            await for (final SrvResourceRecord srv in client.lookup<SrvResourceRecord>(
+              ResourceRecordQuery.service(domainName),
+            ).timeout(const Duration(seconds: 1), onTimeout: (sink) => sink.close())) {
+              final String target = srv.target;
+              final int port = srv.port;
 
-            final txtRecords = <String, String>{};
-            try {
-              await for (final TxtResourceRecord txt in client.lookup<TxtResourceRecord>(
-                ResourceRecordQuery.text(domainName),
-              ).timeout(const Duration(milliseconds: 500), onTimeout: (sink) => sink.close())) {
-                final lines = txt.text.split('\n');
-                for (final line in lines) {
-                  final parts = line.split('=');
-                  if (parts.length >= 2) {
-                    txtRecords[parts[0].trim()] = parts.sublist(1).join('=').trim();
+              final txtRecords = <String, String>{};
+              try {
+                await for (final TxtResourceRecord txt in client.lookup<TxtResourceRecord>(
+                  ResourceRecordQuery.text(domainName),
+                ).timeout(const Duration(milliseconds: 500), onTimeout: (sink) => sink.close())) {
+                  final lines = txt.text.split('\n');
+                  for (final line in lines) {
+                    final parts = line.split('=');
+                    if (parts.length >= 2) {
+                      txtRecords[parts[0].trim()] = parts.sublist(1).join('=').trim();
+                    }
                   }
                 }
-              }
-            } catch (_) {}
+              } catch (_) {}
 
-            await for (final IPAddressResourceRecord ip in client.lookup<IPAddressResourceRecord>(
-              ResourceRecordQuery.addressIPv4(target),
-            ).timeout(const Duration(seconds: 1), onTimeout: (sink) => sink.close())) {
-              yield MdnsResponse(
-                serviceName: serviceType,
-                hostName: target,
-                ipAddress: ip.address.address,
-                port: port,
-                txtRecords: txtRecords,
-              );
+              await for (final IPAddressResourceRecord ip in client.lookup<IPAddressResourceRecord>(
+                ResourceRecordQuery.addressIPv4(target),
+              ).timeout(const Duration(seconds: 1), onTimeout: (sink) => sink.close())) {
+                yield MdnsResponse(
+                  serviceName: serviceType,
+                  hostName: target,
+                  ipAddress: ip.address.address,
+                  port: port,
+                  txtRecords: txtRecords,
+                );
+              }
             }
           }
-        }
+        } catch (_) {}
       }
     } catch (_) {
       // Gracefully handle socket/network exceptions
