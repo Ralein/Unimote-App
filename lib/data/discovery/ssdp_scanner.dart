@@ -59,7 +59,12 @@ class SsdpScanner {
     controller = StreamController<SsdpResponse>(
       onListen: () async {
         try {
-          socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
+          socket = await RawDatagramSocket.bind(
+            InternetAddress.anyIPv4,
+            0,
+            reuseAddress: true,
+            reusePort: false,
+          );
           socket?.broadcastEnabled = true;
           socket?.multicastHops = 4;
 

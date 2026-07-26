@@ -9,7 +9,7 @@ class IrMethodChannel(private val context: Context) : MethodChannel.MethodCallHa
     private val irManager: ConsumerIrManager? =
         context.getSystemService(Context.CONSUMER_IR_SERVICE) as? ConsumerIrManager
 
-    override onMethodCall(call: MethodCall, result: MethodChannel.Result) {
+    override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "hasIrEmitter" -> {
                 val hasEmitter = irManager?.hasIrEmitter() ?: false
@@ -17,9 +17,9 @@ class IrMethodChannel(private val context: Context) : MethodChannel.MethodCallHa
             }
             "transmit" -> {
                 val frequency = call.argument<Int>("frequency") ?: 38000
-                val patternList = call.argument<List<Int>>("pattern")
+                val patternList = call.argument<List<Any>>("pattern")
                 if (irManager != null && irManager.hasIrEmitter() && patternList != null) {
-                    val pattern = patternList.toIntArray()
+                    val pattern = patternList.map { (it as Number).toInt() }.toIntArray()
                     irManager.transmit(frequency, pattern)
                     result.success(true)
                 } else {
