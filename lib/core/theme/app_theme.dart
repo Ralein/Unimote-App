@@ -30,7 +30,7 @@ class AppTheme {
         ),
         iconTheme: IconThemeData(color: AppColors.textPrimary),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: AppColors.surface,
         elevation: 4,
         shadowColor: Colors.black.withOpacity(0.4),
@@ -43,7 +43,7 @@ class AppTheme {
         backgroundColor: AppColors.surface,
         selectedItemColor: AppColors.primaryLight,
         unselectedItemColor: AppColors.textMuted,
-        type: BottomNavigationBarThemeType.fixed,
+        type: BottomNavigationBarType.fixed,
         elevation: 12,
         selectedLabelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
         unselectedLabelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.normal),

@@ -30,7 +30,7 @@ class SettingsScreen extends StatelessWidget {
                   onChanged: (val) {},
                   title: const Text('Dark Mode Default'),
                   subtitle: const Text('Optimal for dark home theater viewing'),
-                  activeColor: AppColors.primary,
+                  activeTrackColor: AppColors.primary,
                 ),
                 const Divider(height: 1, color: AppColors.cardBorder),
                 SwitchListTile(
@@ -38,7 +38,7 @@ class SettingsScreen extends StatelessWidget {
                   onChanged: (val) {},
                   title: const Text('Haptic Feedback'),
                   subtitle: const Text('Vibrate on button taps'),
-                  activeColor: AppColors.primary,
+                  activeTrackColor: AppColors.primary,
                 ),
               ],
             ),

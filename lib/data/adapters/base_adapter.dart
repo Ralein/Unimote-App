@@ -1,7 +1,5 @@
 import 'dart:async';
 import '../../domain/entities/adapter_state.dart';
-import '../../domain/entities/device.dart';
-import '../../domain/entities/remote_key.dart';
 import '../../domain/repositories/remote_adapter.dart';
 
 abstract class BaseAdapter implements RemoteAdapter {
