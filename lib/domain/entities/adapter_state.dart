@@ -61,4 +61,8 @@ class AdapterState {
   @override
   int get hashCode =>
       status.hashCode ^ connectedDevice.hashCode ^ errorMessage.hashCode;
+
+  @override
+  String toString() =>
+      'AdapterState(status: $status, device: ${connectedDevice?.name} [${connectedDevice?.ipAddress}:${connectedDevice?.port}], error: $errorMessage)';
 }

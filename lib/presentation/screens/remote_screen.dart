@@ -207,7 +207,9 @@ class _RemoteScreenState extends ConsumerState<RemoteScreen> {
                             ? (_hasBluetoothHardware ? AppColors.statusGreen : AppColors.powerRed)
                             : (adapterState.isConnected
                                 ? AppColors.statusGreen
-                                : AppColors.warningAmber)),
+                                : (adapterState.isPairing
+                                    ? AppColors.warningAmber
+                                    : AppColors.powerRed))),
                   ),
                 ),
                 const SizedBox(width: 6),
@@ -226,7 +228,9 @@ class _RemoteScreenState extends ConsumerState<RemoteScreen> {
                             ? (_hasBluetoothHardware ? AppColors.statusGreen : AppColors.powerRed)
                             : (adapterState.isConnected
                                 ? AppColors.statusGreen
-                                : AppColors.warningAmber)),
+                                : (adapterState.isPairing
+                                    ? AppColors.warningAmber
+                                    : AppColors.powerRed))),
                     letterSpacing: 0.8,
                   ),
                 ),
@@ -289,37 +293,151 @@ class _RemoteScreenState extends ConsumerState<RemoteScreen> {
 
               const SizedBox(height: 16),
 
-              // Connection Status Banner when in Wi-Fi mode and disconnected
-              if (_connectionMode == ConnectionMode.wifi && !adapterState.isConnected) ...[
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: AppColors.powerRedGlow,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.powerRed),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.warning_amber_rounded, color: AppColors.powerRed, size: 24),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Text(
-                          'No Wi-Fi TV Connected. Switch to Bluetooth or IR mode above.',
-                          style: TextStyle(fontSize: 12, color: AppColors.textPrimary),
+              // Comprehensive Connection Status Banners for Wi-Fi Mode
+              if (_connectionMode == ConnectionMode.wifi) ...[
+                if (adapterState.isPairing && currentDevice != null) ...[
+                  // PAIRING STATE BANNER (Yellow Alert)
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppColors.warningAmber.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.warningAmber, width: 1.5),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                valueColor: AlwaysStoppedAnimation(AppColors.warningAmber),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'Pairing with ${currentDevice.name} (${currentDevice.ipAddress})...',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textPrimary),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                      ElevatedButton(
-                        onPressed: () => _openTroubleshooter(adapterState),
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                        const SizedBox(height: 8),
+                        const Text(
+                          '👉 Look at your TV screen now! Use your physical TV remote to select "ALLOW" or "ACCEPT".',
+                          style: TextStyle(fontSize: 12, color: AppColors.warningAmber, fontWeight: FontWeight.w600),
                         ),
-                        child: const Text('Connect'),
-                      ),
-                    ],
+                        const SizedBox(height: 10),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            ElevatedButton.icon(
+                              onPressed: () => _openTroubleshooter(adapterState),
+                              icon: const Icon(Icons.build_rounded, size: 14),
+                              label: const Text('Pairing Assistant'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.warningAmber,
+                                foregroundColor: Colors.black,
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
+                  const SizedBox(height: 16),
+                ] else if (adapterState.isError) ...[
+                  // ERROR STATE BANNER (Red Alert)
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppColors.powerRedGlow,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.powerRed, width: 1.5),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.error_outline_rounded, color: AppColors.powerRed, size: 22),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                adapterState.errorMessage ?? 'Failed to connect to TV',
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            OutlinedButton(
+                              onPressed: () => _openTroubleshooter(adapterState),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColors.textPrimary,
+                                side: const BorderSide(color: AppColors.cardBorder),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              ),
+                              child: const Text('Diagnostic 🛠️', style: TextStyle(fontSize: 11)),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton(
+                              onPressed: () {
+                                if (currentDevice != null) {
+                                  ref.read(adapterNotifierProvider.notifier).connectToDevice(currentDevice);
+                                }
+                              },
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              ),
+                              child: const Text('Retry 🔄', style: TextStyle(fontSize: 11)),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ] else if (!adapterState.isConnected && !adapterState.isConnecting) ...[
+                  // DISCONNECTED BANNER
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceElevated,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.cardBorder),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.tv_off_rounded, color: AppColors.textMuted, size: 24),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Text(
+                            'No Wi-Fi TV Connected. Tap Discovery or switch to Bluetooth/IR mode.',
+                            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                          ),
+                        ),
+                        ElevatedButton(
+                          onPressed: () => _openTroubleshooter(adapterState),
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                          ),
+                          child: const Text('Connect'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
               ],
 
               // Top Action Row: Power Button & Quick Controls
