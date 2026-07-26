@@ -66,5 +66,15 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Unimote requires local network permission to discover and connect to smart TVs on your Wi-Fi network.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_googlecast._tcp</string>
+		<string>_roku-ecp._tcp</string>
+		<string>_airplay._tcp</string>
+		<string>_ssap._tcp</string>
+		<string>_http._tcp</string>
+	</array>
 </dict>
 </plist>
