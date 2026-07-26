@@ -1,49 +1,45 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
 import '../../domain/entities/device.dart';
+import '../providers/discovery_provider.dart';
 
-class DiscoveryScreen extends StatefulWidget {
+class DiscoveryScreen extends ConsumerStatefulWidget {
   const DiscoveryScreen({super.key});
 
   @override
-  State<DiscoveryScreen> createState() => _DiscoveryScreenState();
+  ConsumerState<DiscoveryScreen> createState() => _DiscoveryScreenState();
 }
 
-class _DiscoveryScreenState extends State<DiscoveryScreen> {
-  bool _isScanning = false;
+class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _radarController;
 
-  final List<Device> _mockDiscoveredDevices = const [
-    Device(
-      id: 'samsung-tizen-55',
-      name: 'Living Room Samsung TV (Q70T)',
-      brand: DeviceBrand.samsung,
-      ipAddress: '192.168.1.105',
-      port: 8002,
-    ),
-    Device(
-      id: 'lg-webos-65',
-      name: 'Bedroom LG OLED TV',
-      brand: DeviceBrand.lg,
-      ipAddress: '192.168.1.112',
-      port: 3001,
-    ),
-    Device(
-      id: 'roku-ultra-01',
-      name: 'Roku Ultra Streaming Box',
-      brand: DeviceBrand.roku,
-      ipAddress: '192.168.1.120',
-      port: 8060,
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _radarController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat();
 
-  void _toggleScan() {
-    setState(() {
-      _isScanning = !_isScanning;
+    // Trigger initial scan on screen entry
+    Future.microtask(() {
+      ref.read(discoveryProvider.notifier).startScan();
     });
+  }
+
+  @override
+  void dispose() {
+    _radarController.dispose();
+    super.dispose();
   }
 
   void _showManualAddBottomSheet() {
     final ipController = TextEditingController();
+    DeviceBrand selectedBrand = DeviceBrand.samsung;
+    String? localError;
+
     showModalBottomSheet(
       context: context,
       backgroundColor: AppColors.surface,
@@ -51,57 +47,103 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       isScrollControlled: true,
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(
-          left: 20,
-          right: 20,
-          top: 20,
-          bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Add Device by IP Address',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Use this fallback for Fire TV or TVs that do not answer SSDP/mDNS broadcasts.',
-              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: ipController,
-              keyboardType: TextInputType.number,
-              style: const TextStyle(color: AppColors.textPrimary),
-              decoration: InputDecoration(
-                hintText: 'e.g. 192.168.1.150',
-                hintStyle: const TextStyle(color: AppColors.textMuted),
-                filled: true,
-                fillColor: AppColors.surfaceElevated,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppColors.cardBorder),
+      builder: (bottomSheetContext) => StatefulBuilder(
+        builder: (context, setModalState) => Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 20,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Add TV by IP Address',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
                 ),
               ),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                },
-                child: const Text('Add & Connect'),
+              const SizedBox(height: 6),
+              const Text(
+                'Required fallback for Fire TV or devices that do not broadcast SSDP/mDNS.',
+                style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
               ),
-            ),
-          ],
+              const SizedBox(height: 16),
+              DropdownButtonFormField<DeviceBrand>(
+                value: selectedBrand,
+                dropdownColor: AppColors.surfaceElevated,
+                style: const TextStyle(color: AppColors.textPrimary),
+                decoration: InputDecoration(
+                  labelText: 'Target TV Brand',
+                  labelStyle: const TextStyle(color: AppColors.textSecondary),
+                  filled: true,
+                  fillColor: AppColors.surfaceElevated,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.cardBorder),
+                  ),
+                ),
+                items: const [
+                  DropdownMenuItem(value: DeviceBrand.samsung, child: Text('Samsung Tizen')),
+                  DropdownMenuItem(value: DeviceBrand.lg, child: Text('LG webOS')),
+                  DropdownMenuItem(value: DeviceBrand.roku, child: Text('Roku ECP')),
+                  DropdownMenuItem(value: DeviceBrand.fireTv, child: Text('Fire TV (ADB)')),
+                  DropdownMenuItem(value: DeviceBrand.androidTv, child: Text('Android TV / Google Cast')),
+                  DropdownMenuItem(value: DeviceBrand.sony, child: Text('Sony Bravia')),
+                  DropdownMenuItem(value: DeviceBrand.vizio, child: Text('Vizio SmartCast')),
+                ],
+                onChanged: (val) {
+                  if (val != null) {
+                    setModalState(() => selectedBrand = val);
+                  }
+                },
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: ipController,
+                keyboardType: TextInputType.number,
+                style: const TextStyle(color: AppColors.textPrimary),
+                decoration: InputDecoration(
+                  labelText: 'IP Address',
+                  hintText: 'e.g. 192.168.1.150',
+                  hintStyle: const TextStyle(color: AppColors.textMuted),
+                  errorText: localError,
+                  filled: true,
+                  fillColor: AppColors.surfaceElevated,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.cardBorder),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    final ip = ipController.text.trim();
+                    try {
+                      await ref
+                          .read(discoveryProvider.notifier)
+                          .addManualDevice(ip, brand: selectedBrand);
+                      if (context.mounted) {
+                        Navigator.pop(context);
+                      }
+                    } catch (err) {
+                      setModalState(() {
+                        localError = 'Invalid IP address format';
+                      });
+                    }
+                  },
+                  child: const Text('Add & Connect'),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -109,6 +151,8 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final discoveryState = ref.watch(discoveryProvider);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Device Discovery'),
@@ -126,7 +170,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Scan Status Banner
+              // Scanning Status Card
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -136,24 +180,30 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
                 ),
                 child: Row(
                   children: [
-                    if (_isScanning)
-                      const SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.5,
-                          valueColor: AlwaysStoppedAnimation(AppColors.primaryLight),
+                    if (discoveryState.isScanning)
+                      RotationTransition(
+                        turns: _radarController,
+                        child: const Icon(
+                          Icons.radar_rounded,
+                          color: AppColors.primaryLight,
+                          size: 30,
                         ),
                       )
                     else
-                      const Icon(Icons.radar_rounded, color: AppColors.primaryLight, size: 28),
+                      const Icon(
+                        Icons.radar_rounded,
+                        color: AppColors.textMuted,
+                        size: 30,
+                      ),
                     const SizedBox(width: 14),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            _isScanning ? 'Scanning local network…' : 'Network Scanner Idle',
+                            discoveryState.isScanning
+                                ? 'Scanning local network…'
+                                : 'Scanner Idle',
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 15,
@@ -161,79 +211,185 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
                             ),
                           ),
                           const Text(
-                            'SSDP (multicast) & mDNS / Bonjour',
-                            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                            'SSDP (239.255.255.250:1900) & mDNS',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                            ),
                           ),
                         ],
                       ),
                     ),
                     ElevatedButton(
-                      onPressed: _toggleScan,
+                      onPressed: () {
+                        final notifier = ref.read(discoveryProvider.notifier);
+                        if (discoveryState.isScanning) {
+                          notifier.stopScan();
+                        } else {
+                          notifier.startScan();
+                        }
+                      },
                       style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 10),
                       ),
-                      child: Text(_isScanning ? 'Stop' : 'Scan'),
+                      child: Text(discoveryState.isScanning ? 'Stop' : 'Scan'),
                     ),
                   ],
                 ),
               ),
 
-              const SizedBox(height: 24),
-              const Text(
-                'Discovered Devices',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
+              if (discoveryState.errorMessage != null) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.powerRedGlow,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error_outline_rounded,
+                          color: AppColors.powerRed, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          discoveryState.errorMessage!,
+                          style: const TextStyle(
+                              fontSize: 13, color: AppColors.textPrimary),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+              ],
+
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Discovered Devices',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  Text(
+                    '${discoveryState.devices.length} Found',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primaryLight,
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
 
               Expanded(
-                child: ListView.separated(
-                  itemCount: _mockDiscoveredDevices.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final device = _mockDiscoveredDevices[index];
-                    return Card(
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: AppColors.surfaceElevated,
-                          child: Icon(
-                            _getBrandIcon(device.brand),
-                            color: AppColors.primaryLight,
-                          ),
+                child: discoveryState.devices.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.tv_off_rounded,
+                              size: 48,
+                              color: AppColors.textMuted,
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              discoveryState.isScanning
+                                  ? 'Searching for TVs on Wi-Fi…'
+                                  : 'No devices found yet',
+                              style: const TextStyle(
+                                  color: AppColors.textSecondary),
+                            ),
+                            const SizedBox(height: 6),
+                            const Text(
+                              'Tap Scan or Add TV by IP address above.',
+                              style: TextStyle(
+                                  fontSize: 12, color: AppColors.textMuted),
+                            ),
+                          ],
                         ),
-                        title: Text(
-                          device.name,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        subtitle: Text(
-                          '${device.brand.name.toUpperCase()} • ${device.ipAddress}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                        trailing: const Icon(
-                          Icons.chevron_right_rounded,
-                          color: AppColors.textMuted,
-                        ),
-                        onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Selected device: ${device.name}'),
-                              duration: const Duration(seconds: 1),
+                      )
+                    : ListView.separated(
+                        itemCount: discoveryState.devices.length,
+                        separatorBuilder: (context, index) =>
+                            const SizedBox(height: 12),
+                        itemBuilder: (context, index) {
+                          final device = discoveryState.devices[index];
+                          final isSelected =
+                              discoveryState.selectedDevice?.id == device.id;
+
+                          return Card(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              side: BorderSide(
+                                color: isSelected
+                                    ? AppColors.primaryLight
+                                    : AppColors.cardBorder,
+                                width: isSelected ? 2 : 1,
+                              ),
+                            ),
+                            child: ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor: isSelected
+                                    ? AppColors.primary.withValues(alpha: 0.3)
+                                    : AppColors.surfaceElevated,
+                                child: Icon(
+                                  _getBrandIcon(device.brand),
+                                  color: isSelected
+                                      ? AppColors.primaryLight
+                                      : AppColors.textPrimary,
+                                ),
+                              ),
+                              title: Text(
+                                device.name,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: isSelected
+                                      ? AppColors.primaryLight
+                                      : AppColors.textPrimary,
+                                ),
+                              ),
+                              subtitle: Text(
+                                '${device.brand.name.toUpperCase()} • ${device.ipAddress}:${device.port}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                              trailing: isSelected
+                                  ? const Icon(
+                                      Icons.check_circle_rounded,
+                                      color: AppColors.primaryLight,
+                                    )
+                                  : const Icon(
+                                      Icons.chevron_right_rounded,
+                                      color: AppColors.textMuted,
+                                    ),
+                              onTap: () {
+                                ref
+                                    .read(discoveryProvider.notifier)
+                                    .selectDevice(device);
+                                ScaffoldMessenger.of(context)
+                                    .hideCurrentSnackBar();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Connected to ${device.name}'),
+                                    duration: const Duration(seconds: 1),
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                              },
                             ),
                           );
                         },
                       ),
-                    );
-                  },
-                ),
               ),
             ],
           ),
