@@ -32,6 +32,7 @@ void main() {
       final subscription = adapter.state.listen((s) => states.add(s.status));
 
       await adapter.connect(testDevice);
+      await Future<void>.delayed(Duration.zero);
 
       expect(states, containsAllInOrder([
         AdapterStateStatus.connecting,

@@ -10,6 +10,7 @@ void main() {
         child: UnimoteApp(),
       ),
     );
+    await tester.pump(const Duration(milliseconds: 500));
     await tester.pumpAndSettle();
 
     // Verify initial remote screen header & navigation options exist
