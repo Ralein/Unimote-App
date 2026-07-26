@@ -10,7 +10,7 @@ class SonyAdapter extends BaseAdapter {
   final Dio _dio;
   final CommandMapper mapper;
   Device? _activeDevice;
-  String _preSharedKey = '0000';
+  final String _preSharedKey;
 
   SonyAdapter({
     Dio? dio,
