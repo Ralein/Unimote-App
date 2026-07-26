@@ -80,8 +80,7 @@ class _RemoteScreenState extends ConsumerState<RemoteScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final adapterStateAsync = ref.watch(adapterStateProvider);
-    final adapterState = adapterStateAsync.value ?? const AdapterState.disconnected();
+    final adapterState = ref.watch(adapterNotifierProvider);
 
     return Scaffold(
       appBar: AppBar(

@@ -30,15 +30,14 @@ class AdapterNotifier extends Notifier<AdapterState> {
       _fallbackMockAdapter.dispose();
     });
 
-    // Default to connecting mock device on app start
-    Future.microtask(() => connectToDevice(mockDevice));
+    _adapter = _fallbackMockAdapter;
+    _currentDevice = mockDevice;
+    _adapter!.connect(mockDevice);
 
-    return const AdapterState.disconnected();
+    return AdapterState.paired(mockDevice);
   }
 
   Future<void> connectToDevice(Device device) async {
-    if (_currentDevice == device && state.isConnected) return;
-
     _stateSubscription?.cancel();
     _currentDevice = device;
 
@@ -49,6 +48,7 @@ class AdapterNotifier extends Notifier<AdapterState> {
     });
 
     await _adapter!.connect(device);
+    await Future<void>.delayed(Duration.zero);
   }
 
   Future<void> sendKey(RemoteKey key) async {
