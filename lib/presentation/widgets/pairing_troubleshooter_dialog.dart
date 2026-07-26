@@ -214,6 +214,9 @@ class _PairingTroubleshooterDialogState extends State<PairingTroubleshooterDialo
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: const [
+                    Text('Eyeplus / Google TV Settings:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.primaryLight)),
+                    Text('1. Wi-Fi Control: Settings → System → About → tap Build 7 times → Developer Options → turn ON "Network Debugging" (Port 6467/5555).\n2. Bluetooth Mode: Switch to Bluetooth mode above → TV Settings → Remotes & Accessories → Add Accessory → select phone.', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                    SizedBox(height: 8),
                     Text('Samsung TV Settings:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.textPrimary)),
                     Text('Settings → General → External Device Manager → Device Connect Manager → set Access Notification to "First Time" & check Device List.', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
                     SizedBox(height: 8),
