@@ -3,6 +3,7 @@ import 'device.dart';
 enum AdapterStateStatus {
   disconnected,
   connecting,
+  pairing,
   paired,
   error,
 }
@@ -28,18 +29,25 @@ class AdapterState {
         connectedDevice = null,
         errorMessage = null;
 
+  const AdapterState.pairing(Device device)
+      : status = AdapterStateStatus.pairing,
+        connectedDevice = device,
+        errorMessage = null;
+
   const AdapterState.paired(Device device)
       : status = AdapterStateStatus.paired,
         connectedDevice = device,
         errorMessage = null;
 
-  const AdapterState.error(String message)
+  const AdapterState.error(String message, {Device? device})
       : status = AdapterStateStatus.error,
-        connectedDevice = null,
+        connectedDevice = device,
         errorMessage = message;
 
   bool get isConnected => status == AdapterStateStatus.paired;
   bool get isConnecting => status == AdapterStateStatus.connecting;
+  bool get isPairing => status == AdapterStateStatus.pairing;
+  bool get isError => status == AdapterStateStatus.error;
 
   @override
   bool operator ==(Object other) =>
