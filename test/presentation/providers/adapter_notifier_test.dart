@@ -1,11 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:unimote/domain/entities/adapter_state.dart';
 import 'package:unimote/domain/entities/device.dart';
 import 'package:unimote/domain/entities/remote_key.dart';
 import 'package:unimote/presentation/providers/adapter_provider.dart';
-
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -22,9 +21,9 @@ void main() {
       container.dispose();
     });
 
-    test('Initializes with default mock device connection', () async {
+    test('Initializes in disconnected state', () async {
       final state = container.read(adapterNotifierProvider);
-      expect(state.status, isNot(AdapterStateStatus.error));
+      expect(state.status, equals(AdapterStateStatus.disconnected));
     });
 
     test('connectToDevice switches active adapter and pairs', () async {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
+import '../../data/adapters/ir_adapter.dart';
 import '../../domain/entities/adapter_state.dart';
 import '../../domain/entities/device.dart';
 import '../../domain/entities/remote_key.dart';
@@ -19,6 +20,11 @@ enum RemoteControlMode {
   apps,
 }
 
+enum ConnectionMode {
+  wifi,
+  ir,
+}
+
 class RemoteScreen extends ConsumerStatefulWidget {
   const RemoteScreen({super.key});
 
@@ -29,21 +35,62 @@ class RemoteScreen extends ConsumerStatefulWidget {
 class _RemoteScreenState extends ConsumerState<RemoteScreen> {
   bool _showNumericPad = false;
   RemoteControlMode _controlMode = RemoteControlMode.dpad;
+  ConnectionMode _connectionMode = ConnectionMode.wifi;
+  late final IrAdapter _irAdapter = IrAdapter();
+  bool _hasIrHardware = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkIrHardware();
+  }
+
+  void _checkIrHardware() async {
+    final hasEmitter = await _irAdapter.hasIrEmitter();
+    if (mounted) {
+      setState(() {
+        _hasIrHardware = hasEmitter;
+      });
+    }
+  }
 
   void _handleKey(RemoteKey key) {
-    final adapter = ref.read(activeAdapterProvider);
-    adapter.sendKey(key);
+    if (_connectionMode == ConnectionMode.ir) {
+      _irAdapter.sendKey(key);
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Sent IR Signal: ${key.displayName}'),
+          duration: const Duration(milliseconds: 600),
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.all(16),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+      return;
+    }
 
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Sent key: ${key.displayName}'),
-        duration: const Duration(milliseconds: 600),
-        behavior: SnackBarBehavior.floating,
-        margin: const EdgeInsets.all(16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
+    final adapter = ref.read(activeAdapterProvider);
+    if (adapter != null) {
+      adapter.sendKey(key);
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Sent Wi-Fi Key: ${key.displayName}'),
+          duration: const Duration(milliseconds: 600),
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.all(16),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('No TV connected. Use Discovery or switch to IR Mode.'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   void _showTextInputDialog() {
@@ -78,7 +125,7 @@ class _RemoteScreenState extends ConsumerState<RemoteScreen> {
             onPressed: () {
               final text = textController.text.trim();
               if (text.isNotEmpty) {
-                ref.read(activeAdapterProvider).sendText(text);
+                ref.read(activeAdapterProvider)?.sendText(text);
               }
               Navigator.pop(context);
             },
@@ -116,7 +163,9 @@ class _RemoteScreenState extends ConsumerState<RemoteScreen> {
         title: Column(
           children: [
             Text(
-              currentDevice?.name ?? 'Unimote Control',
+              _connectionMode == ConnectionMode.ir
+                  ? 'IR Blaster Remote'
+                  : (currentDevice?.name ?? 'Unimote Control'),
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             Row(
@@ -127,23 +176,25 @@ class _RemoteScreenState extends ConsumerState<RemoteScreen> {
                   height: 8,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: adapterState.isConnected
-                        ? AppColors.statusGreen
-                        : (adapterState.isPairing
-                            ? AppColors.primaryLight
+                    color: _connectionMode == ConnectionMode.ir
+                        ? (_hasIrHardware ? AppColors.statusGreen : AppColors.powerRed)
+                        : (adapterState.isConnected
+                            ? AppColors.statusGreen
                             : AppColors.warningAmber),
                   ),
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  adapterState.status.name.toUpperCase(),
+                  _connectionMode == ConnectionMode.ir
+                      ? (_hasIrHardware ? 'IR EMITTER READY' : 'NO IR HARDWARE')
+                      : adapterState.status.name.toUpperCase(),
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
-                    color: adapterState.isConnected
-                        ? AppColors.statusGreen
-                        : (adapterState.isPairing
-                            ? AppColors.primaryLight
+                    color: _connectionMode == ConnectionMode.ir
+                        ? (_hasIrHardware ? AppColors.statusGreen : AppColors.powerRed)
+                        : (adapterState.isConnected
+                            ? AppColors.statusGreen
                             : AppColors.warningAmber),
                     letterSpacing: 0.8,
                   ),
@@ -170,67 +221,64 @@ class _RemoteScreenState extends ConsumerState<RemoteScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           child: Column(
             children: [
-              // Connection / Pairing Status Warning Banner
-              if (!adapterState.isConnected) ...[
+              // Connection Mode Switcher: Wi-Fi vs IR Blaster
+              SegmentedButton<ConnectionMode>(
+                segments: const [
+                  ButtonSegment(
+                    value: ConnectionMode.wifi,
+                    icon: Icon(Icons.wifi_rounded),
+                    label: Text('Wi-Fi TV'),
+                  ),
+                  ButtonSegment(
+                    value: ConnectionMode.ir,
+                    icon: Icon(Icons.sensors_rounded),
+                    label: Text('IR Blaster'),
+                  ),
+                ],
+                selected: {_connectionMode},
+                onSelectionChanged: (Set<ConnectionMode> selection) {
+                  setState(() {
+                    _connectionMode = selection.first;
+                  });
+                },
+                style: ButtonStyle(
+                  backgroundColor: WidgetStateProperty.resolveWith((states) {
+                    if (states.contains(WidgetState.selected)) {
+                      return AppColors.primary;
+                    }
+                    return AppColors.surfaceElevated;
+                  }),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Connection Status Banner when in Wi-Fi mode and disconnected
+              if (_connectionMode == ConnectionMode.wifi && !adapterState.isConnected) ...[
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
-                    color: adapterState.isPairing
-                        ? AppColors.primary.withValues(alpha: 0.2)
-                        : AppColors.powerRedGlow,
+                    color: AppColors.powerRedGlow,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: adapterState.isPairing
-                          ? AppColors.primaryLight
-                          : AppColors.powerRed,
-                    ),
+                    border: Border.all(color: AppColors.powerRed),
                   ),
                   child: Row(
                     children: [
-                      Icon(
-                        adapterState.isPairing
-                            ? Icons.screen_search_desktop_rounded
-                            : Icons.warning_amber_rounded,
-                        color: adapterState.isPairing
-                            ? AppColors.primaryLight
-                            : AppColors.powerRed,
-                        size: 24,
-                      ),
+                      const Icon(Icons.warning_amber_rounded, color: AppColors.powerRed, size: 24),
                       const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              adapterState.isPairing
-                                  ? 'Check TV Screen for Pairing Prompt'
-                                  : 'TV Connection Pending',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                            Text(
-                              adapterState.errorMessage ??
-                                  (adapterState.isPairing
-                                      ? 'Accept on-screen prompt on TV'
-                                      : 'Ensure TV is on Wi-Fi or turn on via WoL'),
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                          ],
+                      const Expanded(
+                        child: Text(
+                          'No Wi-Fi TV Connected. Tap Discovery tab or switch to IR Blaster mode above.',
+                          style: TextStyle(fontSize: 12, color: AppColors.textPrimary),
                         ),
                       ),
                       ElevatedButton(
                         onPressed: () => _openTroubleshooter(adapterState),
                         style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
                         ),
-                        child: const Text('Fix / Pair'),
+                        child: const Text('Connect'),
                       ),
                     ],
                   ),
@@ -248,7 +296,7 @@ class _RemoteScreenState extends ConsumerState<RemoteScreen> {
                     onPressed: () => _handleKey(RemoteKey.inputSource),
                   ),
                   PowerButton(
-                    isConnected: adapterState.isConnected,
+                    isConnected: _connectionMode == ConnectionMode.ir ? _hasIrHardware : adapterState.isConnected,
                     onPressed: () => _handleKey(RemoteKey.power),
                   ),
                   _QuickActionButton(
@@ -359,7 +407,9 @@ class _RemoteScreenState extends ConsumerState<RemoteScreen> {
                 AppLauncherGridWidget(
                   brand: currentDevice?.brand ?? DeviceBrand.samsung,
                   onLaunchApp: (appId) {
-                    ref.read(activeAdapterProvider).launchApp(appId);
+                    if (_connectionMode == ConnectionMode.wifi) {
+                      ref.read(activeAdapterProvider)?.launchApp(appId);
+                    }
                   },
                 ),
               ],

@@ -14,8 +14,8 @@ void main() {
     await tester.pumpAndSettle();
 
     // Verify initial remote screen header & navigation options exist
-    expect(find.text('Living Room TV (Mock)'), findsOneWidget);
-    expect(find.text('PAIRED'), findsOneWidget);
+    expect(find.text('Unimote Control'), findsOneWidget);
+    expect(find.text('DISCONNECTED'), findsOneWidget);
     expect(find.byIcon(Icons.settings_remote_rounded), findsWidgets);
     expect(find.byIcon(Icons.wifi_tethering_rounded), findsOneWidget);
     expect(find.byIcon(Icons.alt_route_rounded), findsOneWidget);

@@ -10,6 +10,14 @@ class IrAdapter extends BaseAdapter {
   static const MethodChannel _channel = MethodChannel('unimote/ir');
   Device? _activeDevice;
 
+  static const Device irGenericDevice = Device(
+    id: 'ir-generic-tv',
+    name: 'Generic IR Remote',
+    brand: DeviceBrand.genericIr,
+    ipAddress: '0.0.0.0',
+    port: 0,
+  );
+
   Future<bool> hasIrEmitter() async {
     try {
       final bool? result = await _channel.invokeMethod<bool>('hasIrEmitter');
@@ -28,7 +36,7 @@ class IrAdapter extends BaseAdapter {
     if (!hasEmitter) {
       emitState(
         AdapterState.error(
-          'No IR Blaster hardware detected on this phone. Use Wi-Fi TV adapters instead.',
+          'No physical IR Blaster hardware detected on this phone. Use Wi-Fi TV adapters instead.',
           device: device,
         ),
       );
@@ -46,7 +54,6 @@ class IrAdapter extends BaseAdapter {
 
   @override
   Future<void> sendKey(RemoteKey key) async {
-    if (_activeDevice == null) return;
     final signal = IrCodeDatabase.getSignal(key);
 
     try {
@@ -55,7 +62,9 @@ class IrAdapter extends BaseAdapter {
         'pattern': signal.pattern,
       });
     } catch (e) {
-      emitState(AdapterState.error('IR Transmission failed: $e', device: _activeDevice));
+      if (_activeDevice != null) {
+        emitState(AdapterState.error('IR Transmission failed: $e', device: _activeDevice));
+      }
     }
   }
 
