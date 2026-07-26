@@ -74,7 +74,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<DeviceBrand>(
-                value: selectedBrand,
+                initialValue: selectedBrand,
                 dropdownColor: AppColors.surfaceElevated,
                 style: const TextStyle(color: AppColors.textPrimary),
                 decoration: InputDecoration(

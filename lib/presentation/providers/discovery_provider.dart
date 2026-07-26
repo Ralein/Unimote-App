@@ -32,13 +32,20 @@ class DiscoveryState {
   }
 }
 
-class DiscoveryNotifier extends StateNotifier<DiscoveryState> {
-  final DiscoveryRepository repository;
+class DiscoveryNotifier extends Notifier<DiscoveryState> {
+  final DiscoveryRepository _repository;
   StreamSubscription<List<Device>>? _scanSubscription;
 
   DiscoveryNotifier({DiscoveryRepository? repository})
-      : repository = repository ?? DiscoveryRepositoryImpl(),
-        super(const DiscoveryState());
+      : _repository = repository ?? DiscoveryRepositoryImpl();
+
+  @override
+  DiscoveryState build() {
+    ref.onDispose(() {
+      _scanSubscription?.cancel();
+    });
+    return const DiscoveryState();
+  }
 
   void startScan({Duration timeout = const Duration(seconds: 4)}) {
     if (state.isScanning) return;
@@ -46,9 +53,8 @@ class DiscoveryNotifier extends StateNotifier<DiscoveryState> {
     state = state.copyWith(isScanning: true, errorMessage: null);
 
     _scanSubscription?.cancel();
-    _scanSubscription = repository.scan(timeout: timeout).listen(
+    _scanSubscription = _repository.scan(timeout: timeout).listen(
       (scannedDevices) {
-        // Merge scanned devices with manual ones
         final currentDevicesMap = {for (var d in state.devices) d.ipAddress: d};
         for (final device in scannedDevices) {
           currentDevicesMap[device.ipAddress] = device;
@@ -102,15 +108,7 @@ class DiscoveryNotifier extends StateNotifier<DiscoveryState> {
   void selectDevice(Device device) {
     state = state.copyWith(selectedDevice: device);
   }
-
-  @override
-  void dispose() {
-    _scanSubscription?.cancel();
-    super.dispose();
-  }
 }
 
 final discoveryProvider =
-    StateNotifierProvider<DiscoveryNotifier, DiscoveryState>((ref) {
-  return DiscoveryNotifier();
-});
+    NotifierProvider<DiscoveryNotifier, DiscoveryState>(DiscoveryNotifier.new);
