@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
+import '../../data/discovery/network_diagnostic_tool.dart';
 import '../../data/discovery/wake_on_lan_service.dart';
 import '../../domain/entities/device.dart';
 
@@ -25,12 +26,29 @@ class _PairingTroubleshooterDialogState extends State<PairingTroubleshooterDialo
   final _pinController = TextEditingController();
   final _macController = TextEditingController();
   String? _wolStatus;
+  DiagnosticReport? _diagnosticReport;
+  bool _isDiagnosing = false;
 
   @override
   void initState() {
     super.initState();
     if (widget.device?.macAddress != null) {
       _macController.text = widget.device!.macAddress!;
+    }
+    if (widget.device != null) {
+      _runDiagnostic();
+    }
+  }
+
+  void _runDiagnostic() async {
+    if (widget.device == null) return;
+    setState(() => _isDiagnosing = true);
+    final report = await NetworkDiagnosticTool.diagnose(widget.device!.ipAddress);
+    if (mounted) {
+      setState(() {
+        _diagnosticReport = report;
+        _isDiagnosing = false;
+      });
     }
   }
 
@@ -46,7 +64,7 @@ class _PairingTroubleshooterDialogState extends State<PairingTroubleshooterDialo
       setState(() {
         _wolStatus = success ? 'Magic packet sent! Waiting for TV wake-up…' : 'Failed to send packet';
       });
-    } catch (e) {
+    } catch (_) {
       setState(() => _wolStatus = 'Invalid MAC address format');
     }
   }
@@ -87,7 +105,7 @@ class _PairingTroubleshooterDialogState extends State<PairingTroubleshooterDialo
           Icon(Icons.build_circle_rounded, color: AppColors.primaryLight, size: 28),
           SizedBox(width: 10),
           Text(
-            'Pairing Troubleshooter',
+            'Pairing Assistant',
             style: TextStyle(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold),
           ),
         ],
@@ -105,18 +123,58 @@ class _PairingTroubleshooterDialogState extends State<PairingTroubleshooterDialo
               const SizedBox(height: 12),
             ],
 
-            const Text(
-              'Diagnostic Checklist:',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textPrimary),
+            // Real-time Network Diagnostic Report Section
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceElevated,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.cardBorder),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.analytics_rounded, size: 18, color: AppColors.primaryLight),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Live Port Diagnostic:',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textPrimary),
+                      ),
+                      const Spacer(),
+                      if (_isDiagnosing)
+                        const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(AppColors.primaryLight)),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  if (_diagnosticReport != null) ...[
+                    Text(
+                      _diagnosticReport!.statusSummary,
+                      style: const TextStyle(fontSize: 12, color: AppColors.textPrimary, fontWeight: FontWeight.w500),
+                    ),
+                    const SizedBox(height: 6),
+                    ..._diagnosticReport!.recommendations.map(
+                      (rec) => Padding(
+                        padding: const EdgeInsets.only(top: 3.0),
+                        child: Text(
+                          rec,
+                          style: const TextStyle(fontSize: 11, color: AppColors.warningAmber, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ),
+                  ] else if (!_isDiagnosing) ...[
+                    const Text('Tap below to run live network diagnostic.', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                  ],
+                ],
+              ),
             ),
-            const SizedBox(height: 6),
-            _CheckItem(text: 'Phone & TV are on the exact same Wi-Fi subnet'),
-            _CheckItem(text: 'Accept on-screen TV permission prompt when shown'),
-            _CheckItem(text: 'Disable AP Isolation / Guest Mode in Wi-Fi router'),
 
             const SizedBox(height: 16),
-            const Divider(color: AppColors.cardBorder),
-            const SizedBox(height: 8),
 
             // PIN Entry Form for Vizio/LG/Android TV
             if (widget.onSubmitPin != null) ...[
@@ -199,7 +257,7 @@ class _PairingTroubleshooterDialogState extends State<PairingTroubleshooterDialo
             OutlinedButton.icon(
               onPressed: _toggleAlternatePort,
               icon: const Icon(Icons.alt_route_rounded, size: 18),
-              label: const Text('Toggle WSS / WS Port (e.g. 8002 ↔ 8001)'),
+              label: const Text('Toggle Port (8002 ↔ 8001 / 3001 ↔ 3000)'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.textPrimary,
                 side: const BorderSide(color: AppColors.cardBorder),
@@ -221,32 +279,6 @@ class _PairingTroubleshooterDialogState extends State<PairingTroubleshooterDialo
           child: const Text('Retry Connection'),
         ),
       ],
-    );
-  }
-}
-
-class _CheckItem extends StatelessWidget {
-  final String text;
-
-  const _CheckItem({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(Icons.check_circle_outline_rounded, size: 16, color: AppColors.primaryLight),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
