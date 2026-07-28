@@ -85,6 +85,7 @@ class LgAdapter extends BaseAdapter {
 
         final webSocket = await WebSocket.connect(
           url,
+          headers: {'Origin': 'http://lg.app'},
           customClient: customClient,
         ).timeout(const Duration(seconds: 4));
 

@@ -71,6 +71,7 @@ class SamsungAdapter extends BaseAdapter {
 
         final webSocket = await WebSocket.connect(
           url,
+          headers: {'Origin': 'file://'},
           customClient: customClient,
         ).timeout(const Duration(seconds: 4));
 
